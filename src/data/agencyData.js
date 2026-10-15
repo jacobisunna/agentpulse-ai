@@ -15,6 +15,7 @@ export const INDUSTRIES = [
   {
     id: "restaurant",
     name: "Restaurants & Hospitality",
+    shortName: "Restaurants",
     tagline: "Never miss a takeout order or dinner reservation during peak rush.",
     badge: "Food & Beverage",
     icon: "Utensils",
@@ -64,6 +65,7 @@ export const INDUSTRIES = [
   {
     id: "fashion",
     name: "Clothing & Fashion Retail",
+    shortName: "Fashion Retail",
     tagline: "Turn window shoppers into VIP loyalists with 24/7 AI personal stylists.",
     badge: "Retail & Apparel",
     icon: "ShoppingBag",
@@ -106,13 +108,14 @@ export const INDUSTRIES = [
         userPrompt: "The boots I bought last week are slightly snug across the toe box. Can I swap for an 8.5?",
         agentThought: "Lookup Order by customer phone. Verify item is unworn. Check stock for size 8.5.",
         agentAction: "API Call: Inventory Reserved (Size 8.5). Created Return QR label.",
-        agentResponse: "No problem at all! I have placed size 8.5 on 48-hour hold for you. I've sent a QR return code to your phone—just drop off the current pair at any USPS or bringing it to our counter, and your new 8.5 boots will be handed right over with no restocking fees!"
+        agentResponse: "No problem at all! I have placed size 8.5 on 48-hour hold for you. I've sent a QR return code to your phone—just drop off the current pair at any USPS location or bring it to our counter, and your new 8.5 boots will be handed right over with no restocking fees!"
       }
     ]
   },
   {
     id: "grocery",
     name: "Grocery Stores & Fresh Markets",
+    shortName: "Grocery",
     tagline: "Streamline customer order pick-lists, smart restocking, and supplier price negotiation.",
     badge: "Supermarkets & Bodegas",
     icon: "Apple",
@@ -156,6 +159,7 @@ export const INDUSTRIES = [
   {
     id: "mechanic",
     name: "Auto Mechanic & Repair Shops",
+    shortName: "Auto Repair",
     tagline: "Turn diagnostic codes into booked repair bays while updating car owners automatically.",
     badge: "Automotive Services",
     icon: "Wrench",
@@ -205,6 +209,7 @@ export const INDUSTRIES = [
   {
     id: "realestate",
     name: "Real Estate & Brokerages",
+    shortName: "Real Estate",
     tagline: "Qualify high-net-worth buyers in 30 seconds and book private property tours 24/7.",
     badge: "Property & Leasing",
     icon: "Building2",
@@ -248,6 +253,7 @@ export const INDUSTRIES = [
   {
     id: "construction",
     name: "Construction & Contractors",
+    shortName: "Construction",
     tagline: "Automate material quote take-offs, sub-contractor dispatch, and safety compliance.",
     badge: "Builders & Trades",
     icon: "Hammer",
@@ -359,7 +365,7 @@ export const CAPABILITIES_BENTO = [
   },
   {
     title: "Zero-Hallucination Guardrails",
-    desc: "Strict deterministic deterministic constraints ensure agents never promise discounts, invent menu items, or misquote job estimates.",
+    desc: "Strict deterministic constraints ensure agents never promise discounts, invent menu items, or misquote job estimates.",
     tag: "Enterprise Safety",
     span: "col-span-12 lg:col-span-4"
   },

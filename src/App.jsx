@@ -8,67 +8,64 @@ import { RoiCalculator } from './components/RoiCalculator';
 import { WorkflowSection } from './components/WorkflowSection';
 import { BentoGrid } from './components/BentoGrid';
 import { ClientStories } from './components/ClientStories';
+import { CtaBand } from './components/CtaBand';
 import { Footer } from './components/Footer';
 import { BlueprintModal } from './components/BlueprintModal';
 import { INDUSTRIES } from './data/agencyData';
+import { useReveal } from './hooks/useReveal';
 
 export function App() {
   const [isBlueprintOpen, setIsBlueprintOpen] = useState(false);
   const [selectedIndustryId, setSelectedIndustryId] = useState(INDUSTRIES[0].id);
 
+  useReveal();
+
   const handleOpenBlueprint = () => setIsBlueprintOpen(true);
   const handleCloseBlueprint = () => setIsBlueprintOpen(false);
 
-  const handleSelectIndustryForSimulator = (industryId) => {
-    setSelectedIndustryId(industryId);
-  };
-
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col relative selection:bg-cyan-500 selection:text-black">
-      {/* Dynamic Interactive Mouse System: Ambient Spotlight, CSS Variables, and Neural Particle Canvas */}
+    <div className="relative flex min-h-screen flex-col text-slate-900">
+      {/* Interactive pointer layer: signal field, reticle cursor, card spotlights */}
       <MouseEffect />
 
-      {/* Navigation Bar */}
       <Navbar onOpenBlueprint={handleOpenBlueprint} />
 
-      {/* Main Page Content */}
-      <main className="flex-1 z-20">
-        {/* Hero Section with Live Call Simulator & Impact Metrics */}
+      <main className="relative z-20 flex-1">
+        {/* Hero with live call demo, impact metrics and integrations strip */}
         <Hero onOpenBlueprint={handleOpenBlueprint} />
 
-        {/* 6 Key SMB Verticals Deep-Dive Showcase */}
+        {/* 6 key SMB verticals deep-dive */}
         <IndustryShowcase
-          onSelectIndustryForSimulator={handleSelectIndustryForSimulator}
+          onSelectIndustryForSimulator={setSelectedIndustryId}
           onOpenBlueprint={handleOpenBlueprint}
         />
 
-        {/* Live Interactive AI Agent Simulator & Chat Sandbox */}
+        {/* Interactive agent sandbox */}
         <AgentPlayground
           selectedIndustryId={selectedIndustryId}
           onSelectIndustry={setSelectedIndustryId}
         />
 
-        {/* SMB Financial ROI & Hours Saved Calculator */}
+        {/* ROI & hours-saved calculator */}
         <RoiCalculator onOpenBlueprint={handleOpenBlueprint} />
 
-        {/* 4-Step Autonomous Agent Deployment Engine */}
+        {/* 4-step deployment pipeline */}
         <WorkflowSection />
 
-        {/* Cutting-Edge Bento Grid: Sub-400ms Voice AI & Guardrails */}
+        {/* Capabilities bento grid */}
         <BentoGrid />
 
-        {/* Verified Client Case Studies & Impact Ratings */}
+        {/* Client results */}
         <ClientStories />
+
+        {/* Closing call to action */}
+        <CtaBand onOpenBlueprint={handleOpenBlueprint} />
       </main>
 
-      {/* Footer with Vercel & GitHub Badges */}
       <Footer onOpenBlueprint={handleOpenBlueprint} />
 
-      {/* Interactive Custom Blueprint Configurator Modal */}
-      <BlueprintModal
-        isOpen={isBlueprintOpen}
-        onClose={handleCloseBlueprint}
-      />
+      {/* Custom agent blueprint configurator */}
+      <BlueprintModal isOpen={isBlueprintOpen} onClose={handleCloseBlueprint} />
     </div>
   );
 }

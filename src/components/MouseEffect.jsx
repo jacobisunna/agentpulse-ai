@@ -1,221 +1,119 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import { attachPointer } from '../fx/pointer';
+import { createSignalField } from '../fx/signalField';
+import { createCursor } from '../fx/cursor';
+import { attachSpotlight } from '../fx/spotlight';
 
+const FX_STORAGE_KEY = 'agentpulse:fx';
+
+function useMediaQuery(query) {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener('change', onChange);
+      return () => mql.removeEventListener('change', onChange);
+    },
+    () => window.matchMedia(query).matches,
+    () => false
+  );
+}
+
+function readStoredPreference() {
+  try {
+    return localStorage.getItem(FX_STORAGE_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+// Interactive pointer layer: the signal-field canvas behind the page, the
+// reticle cursor on top, and card spotlights. Everything runs in rAF loops
+// outside React. The layer stays off for touch screens, reduced motion, and
+// high-contrast / forced-colors modes (where replacing the OS pointer would
+// hurt visibility).
 export function MouseEffect() {
+  const [enabled, setEnabled] = useState(readStoredPreference);
+  const finePointer = useMediaQuery('(hover: hover) and (pointer: fine)');
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const forcedColors = useMediaQuery('(forced-colors: active)');
+  const moreContrast = useMediaQuery('(prefers-contrast: more)');
   const canvasRef = useRef(null);
-  const [enabled, setEnabled] = useState(true);
-  const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
-  const [isPointerInside, setIsPointerInside] = useState(false);
+  const cursorRef = useRef(null);
 
-  // Sync mouse position with CSS variables for dynamic card spotlights
+  const supported = finePointer && !reducedMotion && !forcedColors && !moreContrast;
+  const active = enabled && supported;
+
   useEffect(() => {
-    let animationFrameId;
-    let targetX = window.innerWidth / 2;
-    let targetY = window.innerHeight / 2;
-    let currentX = targetX;
-    let currentY = targetY;
-
-    const handleMouseMove = (e) => {
-      targetX = e.clientX;
-      targetY = e.clientY;
-      setIsPointerInside(true);
-
-      // Set raw mouse pos for canvas
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-
-    const handleMouseLeave = () => {
-      setIsPointerInside(false);
-    };
-
-    const updateCssVars = () => {
-      // Lerp for smooth fluid motion
-      currentX += (targetX - currentX) * 0.15;
-      currentY += (targetY - currentY) * 0.15;
-
-      document.documentElement.style.setProperty('--mouse-x', `${currentX}px`);
-      document.documentElement.style.setProperty('--mouse-y', `${currentY}px`);
-
-      animationFrameId = requestAnimationFrame(updateCssVars);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    window.addEventListener('mouseleave', handleMouseLeave);
-    animationFrameId = requestAnimationFrame(updateCssVars);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseleave', handleMouseLeave);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  // Neural Particle Canvas Web Effect
-  useEffect(() => {
-    if (!enabled) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let animationId;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      initParticles();
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Particle pool
-    const particleCount = Math.min(Math.floor((width * height) / 18000), 70);
-    let particles = [];
-
-    class Particle {
-      constructor() {
-        this.x = Math.random() * width;
-        this.y = Math.random() * height;
-        this.vx = (Math.random() - 0.5) * 0.6;
-        this.vy = (Math.random() - 0.5) * 0.6;
-        this.radius = Math.random() * 1.8 + 1;
-        this.baseColor = Math.random() > 0.4 ? 'rgba(56, 189, 248,' : 'rgba(168, 85, 247,';
-        this.alpha = Math.random() * 0.4 + 0.2;
-      }
-
-      update(mx, my, inside) {
-        this.x += this.vx;
-        this.y += this.vy;
-
-        // Bounce at boundaries
-        if (this.x < 0 || this.x > width) this.vx *= -1;
-        if (this.y < 0 || this.y > height) this.vy *= -1;
-
-        // Interactive mouse interaction
-        if (inside) {
-          const dx = mx - this.x;
-          const dy = my - this.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const maxDist = 160;
-
-          if (dist < maxDist) {
-            const force = (maxDist - dist) / maxDist;
-            // gentle gravitational attraction + tangential swirl
-            this.x += (dx / dist) * force * 1.2;
-            this.y += (dy / dist) * force * 1.2;
-          }
-        }
-      }
-
-      draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `${this.baseColor} ${this.alpha})`;
-        ctx.fill();
-      }
+    try {
+      localStorage.setItem(FX_STORAGE_KEY, enabled ? 'on' : 'off');
+    } catch {
+      // storage can be unavailable (private mode); the toggle still works for this visit
     }
+  }, [enabled]);
 
-    const initParticles = () => {
-      particles = [];
-      for (let i = 0; i < particleCount; i++) {
-        particles.push(new Particle());
-      }
-    };
-
-    initParticles();
-
-    // Render loop
-    const render = () => {
-      ctx.clearRect(0, 0, width, height);
-
-      // Update and draw particles
-      for (let i = 0; i < particles.length; i++) {
-        particles[i].update(mousePos.x, mousePos.y, isPointerInside);
-        particles[i].draw();
-
-        // Connect nearby particles
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < 110) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            const lineAlpha = (1 - dist / 110) * 0.15;
-            ctx.strokeStyle = `rgba(56, 189, 248, ${lineAlpha})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-          }
-        }
-
-        // Connect particles to mouse cursor when close
-        if (isPointerInside) {
-          const mdx = particles[i].x - mousePos.x;
-          const mdy = particles[i].y - mousePos.y;
-          const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-
-          if (mDist < 140) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(mousePos.x, mousePos.y);
-            const cursorLineAlpha = (1 - mDist / 140) * 0.35;
-            ctx.strokeStyle = `rgba(168, 85, 247, ${cursorLineAlpha})`;
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
-        }
-      }
-
-      animationId = requestAnimationFrame(render);
-    };
-
-    render();
-
+  useEffect(() => {
+    if (!active) return undefined;
+    const root = document.documentElement;
+    root.classList.add('fx-on');
+    const detachPointer = attachPointer();
+    const field = createSignalField(canvasRef.current);
+    const cursor = createCursor(cursorRef.current);
+    const detachSpotlight = attachSpotlight();
     return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationId);
+      field.destroy();
+      cursor.destroy();
+      detachSpotlight();
+      detachPointer();
+      root.classList.remove('fx-on');
     };
-  }, [enabled, mousePos.x, mousePos.y, isPointerInside]);
+  }, [active]);
+
+  if (!supported) return null;
 
   return (
     <>
-      {/* Dynamic ambient spotlight following cursor */}
-      {isPointerInside && (
-        <div
-          className="fixed pointer-events-none z-30 transition-opacity duration-300 rounded-full blur-[80px]"
-          style={{
-            left: `${mousePos.x}px`,
-            top: `${mousePos.y}px`,
-            width: '420px',
-            height: '420px',
-            transform: 'translate(-50%, -50%)',
-            background: 'radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, rgba(139, 92, 246, 0.07) 45%, transparent 70%)',
-          }}
-        />
+      {active && (
+        <>
+          <canvas ref={canvasRef} className="fx-field" aria-hidden="true" />
+          <div ref={cursorRef} className="fx-cursor" data-hidden="true" aria-hidden="true">
+            <div className="fx-cursor-ring">
+              <div className="fx-cursor-ring-shape" />
+              <span className="fx-corner tl" />
+              <span className="fx-corner tr" />
+              <span className="fx-corner bl" />
+              <span className="fx-corner br" />
+            </div>
+            <div className="fx-cursor-dot" />
+            <div className="fx-cursor-label" />
+          </div>
+        </>
       )}
 
-      {/* Interactive Neural Particle Canvas */}
-      {enabled && (
-        <canvas
-          ref={canvasRef}
-          className="fixed inset-0 pointer-events-none z-10 opacity-70"
-        />
-      )}
-
-      {/* Toggle button in bottom-right corner */}
-      <div className="fixed bottom-4 right-4 z-40">
+      {/* Portaled to the end of <body> so it is the last tab stop, not the first */}
+      {createPortal(
         <button
-          onClick={() => setEnabled(!enabled)}
-          className="px-3 py-1.5 rounded-full text-xs font-mono font-medium backdrop-blur-md bg-slate-900/80 border border-slate-700/60 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-all flex items-center gap-2 shadow-lg"
-          title="Toggle interactive neural particle canvas"
+          type="button"
+          onClick={() => setEnabled((v) => !v)}
+          aria-pressed={enabled}
+          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2.5 rounded-full border border-line bg-white/85 py-1.5 pl-2 pr-3.5 font-mono text-[11px] font-medium uppercase tracking-wider text-slate-600 shadow-soft backdrop-blur-md transition-colors hover:text-slate-900"
+          title="Toggle interactive cursor effects"
         >
-          <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-cyan-400 animate-pulse' : 'bg-slate-600'}`} />
-          <span>Mouse Neural FX: {enabled ? 'ON' : 'OFF'}</span>
-        </button>
-      </div>
+          <span
+            className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+              enabled ? 'bg-gradient-to-r from-indigo-600 to-cyan-500' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`absolute h-3 w-3 rounded-full bg-white shadow transition-transform ${
+                enabled ? 'translate-x-3.5' : 'translate-x-0.5'
+              }`}
+            />
+          </span>
+          <span>Interactive FX</span>
+        </button>,
+        document.body
+      )}
     </>
   );
 }

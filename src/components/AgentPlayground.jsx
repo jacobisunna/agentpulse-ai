@@ -1,303 +1,410 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Bot, 
-  Send, 
-  Sparkles, 
-  Zap, 
-  CheckCircle2, 
-  RotateCcw, 
-  Volume2, 
-  Cpu, 
-  ShieldCheck, 
-  Layers,
-  Flame
+import {
+  Bot,
+  Send,
+  Sparkles,
+  Zap,
+  CheckCircle2,
+  RotateCcw,
+  Cpu,
+  Flame,
+  Utensils,
+  ShoppingBag,
+  Apple,
+  Wrench,
+  Building2,
+  Hammer,
 } from 'lucide-react';
 import { INDUSTRIES } from '../data/agencyData';
+
+const INDUSTRY_ICONS = { Utensils, ShoppingBag, Apple, Wrench, Building2, Hammer };
+
+const REPLY_DELAY_MS = 1100;
+const PROMPT_PREVIEW_CHARS = 44;
+
+let messageSeq = 0;
+const createMessage = (fields) => ({ id: `msg-${++messageSeq}`, ...fields });
+
+// The scripted opening exchange shown on load, on industry change and on reset.
+// Seeded messages are flagged so the log knows to show them from the top.
+function createConversation(industry) {
+  const [opening] = industry.interactivePrompts;
+  return [
+    createMessage({
+      role: 'system',
+      seeded: true,
+      content: `${industry.shortName} agent core v4.2 loaded · native APIs synced`,
+    }),
+    createMessage({ role: 'user', seeded: true, content: opening.userPrompt }),
+    createMessage({
+      role: 'assistant',
+      seeded: true,
+      thought: opening.agentThought,
+      action: opening.agentAction,
+      content: opening.agentResponse,
+    }),
+  ];
+}
+
+function createReply(industry, text) {
+  const normalized = text.toLowerCase();
+  const matched = industry.interactivePrompts.find((p) => p.userPrompt.toLowerCase().trim() === normalized);
+  if (matched) {
+    return createMessage({
+      role: 'assistant',
+      thought: matched.agentThought,
+      action: matched.agentAction,
+      content: matched.agentResponse,
+    });
+  }
+  return createMessage({
+    role: 'assistant',
+    thought: `Parsing context for ${industry.name}. Checking customer CRM & real-time inventory API.`,
+    action: 'API Action: Validated business constraints. Dispatched webhook payload to backend queue.',
+    content: `Thank you! I've processed your request for our ${industry.shortName.toLowerCase()} team. All parameters are verified and logged in our system, and I've sent a confirmation to your mobile with the details.`,
+  });
+}
+
+// Shortens a quick prompt at a word boundary; only adds an ellipsis when something was cut.
+function previewPrompt(text) {
+  if (text.length <= PROMPT_PREVIEW_CHARS) return text;
+  const cut = text.slice(0, PROMPT_PREVIEW_CHARS);
+  const lastSpace = cut.lastIndexOf(' ');
+  const trimmed = lastSpace > PROMPT_PREVIEW_CHARS * 0.6 ? cut.slice(0, lastSpace) : cut;
+  return `${trimmed.replace(/[\s,.;:!?-]+$/, '')}…`;
+}
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+
+function AgentAvatar() {
+  return (
+    <div
+      aria-hidden="true"
+      className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600"
+    >
+      <Bot className="h-4 w-4" />
+    </div>
+  );
+}
+
+function ChatMessage({ message }) {
+  if (message.role === 'system') {
+    return (
+      <div className="flex animate-fade-up justify-center">
+        <span className="inline-flex max-w-full items-center gap-1.5 text-balance rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-center font-mono text-[11px] text-slate-600">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
+          {message.content}
+        </span>
+      </div>
+    );
+  }
+
+  if (message.role === 'user') {
+    return (
+      <div className="flex animate-fade-up justify-end">
+        <p className="max-w-[88%] rounded-2xl rounded-tr-sm bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 leading-relaxed text-white shadow-[0_12px_24px_-14px_rgba(79,70,229,0.7)] sm:max-w-[75%]">
+          {message.content}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex animate-fade-up items-start gap-3 sm:max-w-[88%]">
+      <AgentAvatar />
+      <div className="min-w-0 flex-1 space-y-2">
+        {/* Internal reasoning + the API action the agent took */}
+        {(message.thought || message.action) && (
+          <div className="space-y-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2.5 font-mono text-xs leading-relaxed">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-indigo-700">
+              <Cpu className="h-3.5 w-3.5" aria-hidden="true" />
+              AUTONOMOUS ENGINE STEP
+            </p>
+            {message.thought && (
+              <p className="flex gap-2 break-words text-slate-600">
+                <span aria-hidden="true" className="text-indigo-500">›</span>
+                <span className="min-w-0">{message.thought}</span>
+              </p>
+            )}
+            {message.action && (
+              <p className="flex gap-2 break-words text-slate-700">
+                <span aria-hidden="true" className="text-indigo-500">→</span>
+                <span className="min-w-0">{message.action}</span>
+              </p>
+            )}
+          </div>
+        )}
+
+        <p className="rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 leading-relaxed text-slate-800 shadow-soft">
+          {message.content}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Remounted (via key) whenever the industry changes, so every conversation starts
+// clean and an in-flight reply for the previous industry is cancelled on unmount.
+function SandboxConsole({ industry }) {
+  const [messages, setMessages] = useState(() => createConversation(industry));
+  const [inputValue, setInputValue] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [latency, setLatency] = useState(240);
+  const logRef = useRef(null);
+  const replyTimerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const cancelPendingReply = () => {
+    clearTimeout(replyTimerRef.current);
+    replyTimerRef.current = null;
+  };
+
+  // Drop any pending reply when the console unmounts (industry switch or page teardown)
+  useEffect(() => () => clearTimeout(replyTimerRef.current), []);
+
+  // Scroll ONLY the chat log. (scrollIntoView would also scroll the window and
+  // yank the whole page down to this section on load.)
+  useEffect(() => {
+    const log = logRef.current;
+    if (!log) return;
+
+    // A freshly seeded conversation reads top-down, with no animation
+    if (messages.every((m) => m.seeded)) {
+      log.scrollTo({ top: 0 });
+      return;
+    }
+
+    // Follow the newest turn; if it is taller than the log, stop at its first line.
+    // Layout offsets (not scrollHeight) keep the fade-up transform from skewing the target.
+    const newest = log.lastElementChild;
+    if (!newest) return;
+    const padBottom = parseFloat(getComputedStyle(log).paddingBottom) || 0;
+    const bottom = newest.offsetTop + newest.offsetHeight + padBottom - log.clientHeight;
+    const top = Math.max(0, Math.min(bottom, newest.offsetTop - 16));
+    log.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }, [messages, isTyping]);
+
+  const handleSendPrompt = (promptText) => {
+    const fromInput = promptText === undefined;
+    const text = (fromInput ? inputValue : promptText).trim();
+    if (isTyping || replyTimerRef.current || !text) return;
+
+    const userMessage = createMessage({ role: 'user', content: text });
+    setMessages((prev) => [...prev, userMessage]);
+    if (fromInput) setInputValue('');
+    setIsTyping(true);
+    setLatency(Math.floor(Math.random() * 90) + 180);
+
+    replyTimerRef.current = setTimeout(() => {
+      replyTimerRef.current = null;
+      const reply = createReply(industry, text);
+      setMessages((prev) => [...prev, reply]);
+      setIsTyping(false);
+    }, REPLY_DELAY_MS);
+  };
+
+  const handleReset = () => {
+    cancelPendingReply();
+    setIsTyping(false);
+    setMessages(createConversation(industry));
+  };
+
+  return (
+    <div className="spotlight-card overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lift">
+      {/* Console top bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-50/80 px-4 py-3.5 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-600 to-cyan-500 text-white shadow-[0_8px_18px_-6px_rgba(79,70,229,0.6)]">
+            <Bot className="h-[18px] w-[18px]" aria-hidden="true" />
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full border-2 border-white bg-emerald-400"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h3 className="text-sm font-semibold text-ink">
+                <span className="sm:hidden">{industry.shortName} Agent</span>
+                <span className="hidden sm:inline">{industry.name} Agent</span>
+              </h3>
+              <span className="rounded-md border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-indigo-700">
+                LIVE REASONING
+              </span>
+            </div>
+            <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
+              Model: OmniAgent-4.2 · Guardrails engaged
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="chip">
+            <Zap className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
+            <span className="tabular-nums">Latency: {latency}ms</span>
+          </span>
+          <button
+            type="button"
+            onClick={handleReset}
+            aria-label="Reset conversation"
+            title="Reset conversation"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-soft transition-colors hover:border-indigo-200 hover:text-indigo-700"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      {/* Chat log */}
+      <div
+        ref={logRef}
+        role="log"
+        aria-live="polite"
+        aria-label={`Conversation with the ${industry.shortName} agent`}
+        className="relative h-[440px] space-y-4 overflow-y-auto px-4 py-6 text-sm sm:h-[460px] sm:px-6"
+      >
+        {messages.map((message) => (
+          <ChatMessage key={message.id} message={message} />
+        ))}
+
+        {isTyping && (
+          <div className="flex animate-fade-up items-start gap-3">
+            <AgentAvatar />
+            <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 shadow-soft">
+              <span aria-hidden="true" className="h-2 w-2 animate-bounce rounded-full bg-indigo-500 [animation-delay:-0.3s]" />
+              <span aria-hidden="true" className="h-2 w-2 animate-bounce rounded-full bg-indigo-500 [animation-delay:-0.15s]" />
+              <span aria-hidden="true" className="h-2 w-2 animate-bounce rounded-full bg-indigo-500" />
+              <span className="ml-2 font-mono text-xs text-slate-600">Reasoning &amp; querying APIs…</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick prompts */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/80 bg-slate-50/70 px-4 py-3 text-xs sm:px-6">
+        <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-medium text-slate-600">
+          <Sparkles className="h-3.5 w-3.5 text-indigo-500" aria-hidden="true" />
+          Quick prompts
+        </span>
+        {industry.interactivePrompts.map((p) => (
+          <button
+            key={p.userPrompt}
+            type="button"
+            onClick={() => handleSendPrompt(p.userPrompt)}
+            // aria-disabled rather than disabled: disabling the focused chip would drop keyboard focus
+            aria-disabled={isTyping}
+            aria-label={p.userPrompt}
+            title={p.userPrompt}
+            className="max-w-full truncate rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-600 shadow-soft transition-colors hover:border-indigo-200 hover:text-indigo-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-slate-200 aria-disabled:hover:text-slate-600"
+          >
+            “{previewPrompt(p.userPrompt)}”
+          </button>
+        ))}
+      </div>
+
+      {/* Composer */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSendPrompt();
+          // Send disables itself once the input clears; keep focus in the composer
+          inputRef.current?.focus();
+        }}
+        className="flex items-center gap-2 border-t border-slate-200/80 p-3 sm:gap-3 sm:p-4"
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder={`Ask the ${industry.shortName} agent anything…`}
+          aria-label={`Message the ${industry.shortName} agent`}
+          autoComplete="off"
+          enterKeyHint="send"
+          maxLength={280}
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition-shadow placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100"
+        />
+        <button
+          type="submit"
+          data-magnetic
+          disabled={isTyping || !inputValue.trim()}
+          className="btn btn-primary shrink-0 px-5 py-3 text-sm"
+        >
+          <span>Send</span>
+          <Send className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </form>
+    </div>
+  );
+}
 
 export function AgentPlayground({ selectedIndustryId, onSelectIndustry }) {
   const currentIndustry = INDUSTRIES.find((ind) => ind.id === selectedIndustryId) || INDUSTRIES[0];
 
-  const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [latency, setLatency] = useState(240);
-  const [voiceActive, setVoiceActive] = useState(false);
-  const messagesEndRef = useRef(null);
-
-  // Initialize conversation when industry changes
-  useEffect(() => {
-    const initialPrompt = currentIndustry.interactivePrompts[0];
-    setMessages([
-      {
-        role: 'system',
-        content: `Loaded ${currentIndustry.name} Autonomous Agent Core v4.2. Synced with native APIs.`
-      },
-      {
-        role: 'user',
-        content: initialPrompt.userPrompt
-      },
-      {
-        role: 'assistant',
-        thought: initialPrompt.agentThought,
-        action: initialPrompt.agentAction,
-        content: initialPrompt.agentResponse
-      }
-    ]);
-  }, [selectedIndustryId, currentIndustry]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
-
-  const handleSendPrompt = (textToSend) => {
-    const text = textToSend || inputValue;
-    if (!text.trim()) return;
-
-    const userMessage = { role: 'user', content: text };
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
-    setIsTyping(true);
-    setLatency(Math.floor(Math.random() * 90) + 180);
-
-    // Dynamic response simulation
-    setTimeout(() => {
-      let thought = `Parsing context for ${currentIndustry.name}. Checking customer CRM & real-time inventory API.`;
-      let action = `API Action: Validated business constraints. Dispatched webhook payload to backend queue.`;
-      let reply = `Thank you! I've processed your request for our ${currentIndustry.name.toLowerCase()} team. All parameters are verified and logged in our system. I've sent a direct confirmation to your mobile with instant details!`;
-
-      // Check if matches known prompt
-      const matched = currentIndustry.interactivePrompts.find(
-        (p) => p.userPrompt.toLowerCase().trim() === text.toLowerCase().trim()
-      );
-
-      if (matched) {
-        thought = matched.agentThought;
-        action = matched.agentAction;
-        reply = matched.agentResponse;
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          thought,
-          action,
-          content: reply
-        }
-      ]);
-      setIsTyping(false);
-    }, 1100);
-  };
-
-  const handleReset = () => {
-    const initialPrompt = currentIndustry.interactivePrompts[0];
-    setMessages([
-      {
-        role: 'system',
-        content: `Agent initialized for ${currentIndustry.name}. Ready for voice & text queries.`
-      },
-      {
-        role: 'user',
-        content: initialPrompt.userPrompt
-      },
-      {
-        role: 'assistant',
-        thought: initialPrompt.agentThought,
-        action: initialPrompt.agentAction,
-        content: initialPrompt.agentResponse
-      }
-    ]);
-  };
-
   return (
-    <section id="simulator" className="py-24 relative overflow-hidden bg-slate-950/40">
-      {/* Glow backdrop */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-cyan-600/10 rounded-full blur-[130px] pointer-events-none -z-10" />
+    <section
+      id="simulator"
+      className="relative isolate overflow-hidden border-y border-slate-200/70 bg-white/60 py-24"
+    >
+      {/* Faint grid + brand glow behind the console */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern [mask-image:radial-gradient(ellipse_60%_55%_at_50%_55%,#000,transparent)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[58%] -z-10 h-[460px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(99,102,241,0.13),transparent)]"
+      />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-14">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900 border border-cyan-500/30 text-cyan-400 text-xs font-mono uppercase tracking-wider">
-            <Flame className="w-3.5 h-3.5 text-orange-400" />
-            <span>Interactive AI Agent Sandbox</span>
+        <div className="mx-auto mb-10 max-w-3xl space-y-4 text-center">
+          <div data-reveal className="eyebrow">
+            <Flame className="h-3.5 w-3.5 text-orange-500" aria-hidden="true" />
+            <span>Interactive AI agent sandbox</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-display text-white tracking-tight">
-            Test Drive An Agent in Real-Time
+          <h2 data-reveal style={{ '--reveal-delay': '70ms' }} className="section-title">
+            Test-drive an agent in <span className="gradient-text">real time</span>
           </h2>
-          <p className="text-slate-400 text-base sm:text-lg">
-            Experience how our agents converse with customers, execute internal API actions, and manage operations with zero wait times.
+          <p data-reveal style={{ '--reveal-delay': '140ms' }} className="section-lead">
+            Experience how our agents converse with customers, execute internal API actions, and manage operations with
+            zero wait times.
           </p>
         </div>
 
-        {/* Industry Switcher Buttons */}
-        <div className="flex items-center justify-center gap-2 flex-wrap mb-8">
-          {INDUSTRIES.map((ind) => (
-            <button
-              key={ind.id}
-              onClick={() => onSelectIndustry(ind.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono transition-all cursor-pointer ${
-                ind.id === currentIndustry.id
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
-                  : 'bg-slate-900/60 text-slate-400 border border-white/5 hover:text-white hover:border-white/20'
-              }`}
-            >
-              {ind.name.split(' ')[0]}
-            </button>
-          ))}
+        {/* Industry switcher */}
+        <div
+          data-reveal
+          style={{ '--reveal-delay': '210ms' }}
+          role="group"
+          aria-label="Choose an industry"
+          className="mb-8 flex flex-wrap items-center justify-center gap-2"
+        >
+          {INDUSTRIES.map((ind) => {
+            const isActive = ind.id === currentIndustry.id;
+            const Icon = INDUSTRY_ICONS[ind.icon] || Bot;
+            return (
+              <button
+                key={ind.id}
+                type="button"
+                onClick={() => onSelectIndustry(ind.id)}
+                aria-pressed={isActive}
+                className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] font-medium transition-colors sm:px-4 sm:text-sm ${
+                  isActive
+                    ? 'border-ink bg-ink text-white shadow-lift'
+                    : 'border-slate-200 bg-white text-slate-600 shadow-soft hover:border-indigo-200 hover:text-indigo-700'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {ind.shortName}
+              </button>
+            );
+          })}
         </div>
 
-        {/* The Sandbox Console */}
-        <div className="max-w-4xl mx-auto spotlight-card rounded-2xl border border-white/10 bg-[#080d17]/90 shadow-2xl overflow-hidden">
-          {/* Top Bar of Sandbox */}
-          <div className="p-4 bg-slate-900/90 border-b border-white/10 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white">
-                  <Bot className="w-4 h-4" />
-                </div>
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900 animate-pulse"></span>
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <span>{currentIndustry.name} Agent</span>
-                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/70 border border-cyan-800/40 px-1.5 py-0.2 rounded">
-                    LIVE REASONING
-                  </span>
-                </h4>
-                <p className="text-[11px] text-slate-400 font-mono">Model: OmniAgent-4.2 • Guardrails Engaged</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs font-mono text-slate-400 bg-slate-950/80 px-2.5 py-1 rounded-md border border-white/5">
-                <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Latency: {latency}ms</span>
-              </div>
-
-              <button
-                onClick={handleReset}
-                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                title="Reset Conversation"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Chat Messages Stream */}
-          <div className="p-6 h-[420px] overflow-y-auto space-y-4 font-sans text-sm">
-            {messages.map((msg, index) => {
-              if (msg.role === 'system') {
-                return (
-                  <div key={index} className="text-center my-2">
-                    <span className="px-3 py-1 rounded-full text-[11px] font-mono bg-slate-900/80 text-slate-400 border border-white/5">
-                      {msg.content}
-                    </span>
-                  </div>
-                );
-              }
-
-              if (msg.role === 'user') {
-                return (
-                  <div key={index} className="flex items-start gap-3 justify-end">
-                    <div className="max-w-[80%] bg-gradient-to-r from-cyan-600 to-indigo-600 text-white p-3.5 rounded-2xl rounded-tr-sm shadow-md">
-                      <p className="leading-relaxed">{msg.content}</p>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div key={index} className="flex items-start gap-3 max-w-[90%]">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 mt-1">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                  <div className="space-y-2 w-full">
-                    {/* Agent internal reasoning / action step */}
-                    {msg.action && (
-                      <div className="p-2.5 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-xs font-mono text-indigo-300 space-y-1">
-                        <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-[11px]">
-                          <Cpu className="w-3.5 h-3.5" />
-                          <span>AUTONOMOUS ENGINE STEP:</span>
-                        </div>
-                        <p className="text-slate-300">{msg.action}</p>
-                      </div>
-                    )}
-
-                    {/* Agent natural response */}
-                    <div className="bg-slate-900/90 border border-white/10 p-4 rounded-2xl rounded-tl-sm text-slate-100 shadow-sm leading-relaxed">
-                      {msg.content}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Typing indicator */}
-            {isTyping && (
-              <div className="flex items-center gap-3 max-w-[80%]">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 animate-spin" />
-                </div>
-                <div className="bg-slate-900 border border-white/10 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce"></span>
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]"></span>
-                  <span className="text-xs font-mono text-slate-400 ml-2">Reasoning & querying APIs...</span>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Sample Prompts Pills */}
-          <div className="px-6 py-3 bg-slate-950/80 border-t border-white/5 flex items-center gap-2 overflow-x-auto text-xs">
-            <span className="text-slate-400 font-mono shrink-0 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              Quick Prompts:
-            </span>
-            {currentIndustry.interactivePrompts.map((p, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSendPrompt(p.userPrompt)}
-                className="px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-white/10 text-slate-300 hover:text-cyan-300 whitespace-nowrap transition-colors cursor-pointer"
-              >
-                "{p.userPrompt.slice(0, 42)}..."
-              </button>
-            ))}
-          </div>
-
-          {/* Input Box */}
-          <div className="p-4 bg-slate-900 border-t border-white/10">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendPrompt();
-              }}
-              className="flex items-center gap-3"
-            >
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={`Ask ${currentIndustry.name} agent anything...`}
-                className="flex-1 bg-slate-950 border border-white/10 focus:border-cyan-500 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={isTyping || !inputValue.trim()}
-                className="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 disabled:opacity-40 text-white font-medium text-sm flex items-center gap-2 shadow-lg cursor-pointer transition-all"
-              >
-                <span>Send</span>
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          </div>
+        {/* The sandbox console */}
+        <div data-reveal style={{ '--reveal-delay': '280ms' }} className="mx-auto max-w-4xl">
+          <SandboxConsole key={currentIndustry.id} industry={currentIndustry} />
         </div>
       </div>
     </section>

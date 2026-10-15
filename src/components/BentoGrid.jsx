@@ -1,167 +1,202 @@
 import React from 'react';
-import { 
-  Radio, 
-  ShieldCheck, 
-  RefreshCw, 
-  Globe2, 
-  PhoneForwarded, 
-  Sparkles, 
-  Terminal,
-  Cpu,
-  Zap
-} from 'lucide-react';
-import { CAPABILITIES_BENTO } from '../data/agencyData';
+import { Cpu, Globe2, PhoneForwarded, Radio, RefreshCw, ShieldCheck } from 'lucide-react';
+
+// Light tinted category pills, one per capability card
+const PILL_TONES = {
+  cyan: 'border-cyan-200 bg-cyan-50 text-cyan-700',
+  violet: 'border-violet-200 bg-violet-50 text-violet-700',
+  indigo: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+  sky: 'border-sky-200 bg-sky-50 text-sky-700',
+  amber: 'border-amber-200 bg-amber-50 text-amber-700',
+};
+
+const INTEGRATIONS = ['Toast', 'Square', 'Shopify', 'Tekmetric', 'Procore'];
+
+// Deterministic waveform: varied bar heights, staggered timing (same rhythm as the Hero waveform)
+const WAVE_BARS = Array.from({ length: 36 }, (_, i) => ({
+  height: 35 + ((i * 29) % 65),
+  delay: (i * 97) % 1100,
+  duration: 900 + ((i * 53) % 600),
+}));
+
+function CategoryPill({ tone, children }) {
+  return (
+    <span className={`rounded-full border px-3 py-1 font-mono text-[11px] font-medium ${PILL_TONES[tone]}`}>
+      {children}
+    </span>
+  );
+}
+
+// Grid cell: the wrapper carries the scroll reveal, the card inside keeps its own hover transitions
+function BentoCell({ className = '', delay = '0ms', children }) {
+  return (
+    <div data-reveal style={{ '--reveal-delay': delay }} className={className}>
+      <article className="spotlight-card card flex h-full flex-col justify-between gap-6 rounded-2xl p-6 transition-shadow duration-300 hover:shadow-lift sm:p-8">
+        {children}
+      </article>
+    </div>
+  );
+}
+
+function Callout({ dotClass, textClass, children }) {
+  return (
+    <div className={`inset-panel flex items-center gap-2 p-3.5 font-mono text-[11px] font-medium ${textClass}`}>
+      <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+      <span>{children}</span>
+    </div>
+  );
+}
 
 export function BentoGrid() {
   return (
-    <section className="py-24 relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900 border border-cyan-500/30 text-cyan-400 text-xs font-mono uppercase tracking-wider">
-            <Cpu className="w-3.5 h-3.5" />
-            <span>Under The Hood</span>
+    <section id="capabilities" className="relative overflow-hidden py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-16 max-w-3xl space-y-4 text-center">
+          <div data-reveal className="eyebrow">
+            <Cpu className="h-3.5 w-3.5 text-indigo-500" aria-hidden="true" />
+            <span>Under the hood</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-display text-white tracking-tight">
-            Cutting-Edge AI Infrastructure
+          <h2 data-reveal style={{ '--reveal-delay': '60ms' }} className="section-title">
+            Cutting-edge <span className="gradient-text">AI infrastructure</span>
           </h2>
-          <p className="text-slate-400 text-base sm:text-lg">
-            Engineered with enterprise-level fault tolerance, sub-second latency, and strict guardrails designed for real business operations.
+          <p data-reveal style={{ '--reveal-delay': '120ms' }} className="section-lead">
+            Engineered with enterprise-level fault tolerance, sub-second latency, and strict guardrails designed for real
+            business operations.
           </p>
         </div>
 
-        {/* Bento Grid */}
         <div className="grid grid-cols-12 gap-6">
-          {/* Bento Item 1: Voice Engine (8 cols) */}
-          <div className="col-span-12 lg:col-span-8 spotlight-card rounded-2xl border border-white/10 bg-[#090d18]/90 p-8 flex flex-col justify-between space-y-6">
+          {/* Voice engine (8 cols) */}
+          <BentoCell className="col-span-12 lg:col-span-8">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full text-xs font-mono bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
-                  Sub-400ms Voice Synthesis
-                </span>
-                <span className="text-xs font-mono text-emerald-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  Natural Human Cadence
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CategoryPill tone="cyan">Sub-400ms voice synthesis</CategoryPill>
+                <span className="flex items-center gap-1.5 font-mono text-[11px] font-medium text-emerald-700">
+                  <span className="relative flex h-2 w-2" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                  Natural human cadence
                 </span>
               </div>
-              <h3 className="text-2xl font-bold font-display text-white">
-                Human-Grade Inbound & Outbound Voice Calling
+              <h3 className="font-display text-2xl font-bold tracking-tight text-ink">
+                Human-grade inbound &amp; outbound voice calling
               </h3>
-              <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-                Trained to handle interruptions, cross-talk, heavy background kitchen or garage noise, and multi-turn conversations without awkward pauses or robotic delays.
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+                Trained to handle interruptions, cross-talk, heavy background kitchen or garage noise, and multi-turn
+                conversations without awkward pauses or robotic delays.
               </p>
             </div>
 
-            {/* Visual audio wave track */}
-            <div className="p-4 rounded-xl bg-slate-950/70 border border-white/5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
-                <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
-                <span>Whisper + Dual-LLM Pipeline</span>
+            {/* Live audio track: stacks on small screens, single strip on lg+ */}
+            <div className="inset-panel grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 p-4 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+              <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 font-mono text-xs text-slate-600">
+                <Radio className="h-4 w-4 shrink-0 animate-pulse text-indigo-600" aria-hidden="true" />
+                <span className="truncate">Whisper + dual-LLM pipeline</span>
               </div>
-              <div className="flex items-center gap-1">
-                {[40, 70, 95, 30, 80, 50, 90, 65, 35, 75, 45, 85, 60, 40, 70].map((h, i) => (
-                  <div
+
+              <div
+                aria-hidden="true"
+                className="mask-fade-x col-span-2 row-start-2 flex h-10 items-center justify-between gap-[3px] overflow-hidden lg:col-span-1 lg:col-start-2 lg:row-start-1"
+              >
+                {WAVE_BARS.map((bar, i) => (
+                  <span
                     key={i}
-                    className="w-1 bg-gradient-to-t from-cyan-500 to-indigo-500 rounded-full"
-                    style={{ height: `${h * 0.35}px` }}
+                    className="w-[3px] shrink-0 origin-center animate-wave rounded-full bg-gradient-to-t from-indigo-500 to-cyan-400"
+                    style={{
+                      height: `${bar.height}%`,
+                      animationDelay: `${bar.delay}ms`,
+                      animationDuration: `${bar.duration}ms`,
+                    }}
                   />
                 ))}
               </div>
-              <span className="text-xs font-mono text-cyan-400">&lt; 380ms Latency</span>
-            </div>
-          </div>
 
-          {/* Bento Item 2: Zero-Hallucination (4 cols) */}
-          <div className="col-span-12 lg:col-span-4 spotlight-card rounded-2xl border border-white/10 bg-[#090d18]/90 p-8 flex flex-col justify-between space-y-6">
+              <span className="col-start-2 row-start-1 hidden justify-self-end whitespace-nowrap font-mono text-xs font-semibold text-indigo-600 sm:block lg:col-start-3">
+                &lt; 380ms latency
+              </span>
+            </div>
+          </BentoCell>
+
+          {/* Zero-hallucination guardrails (4 cols) */}
+          <BentoCell className="col-span-12 md:col-span-6 lg:col-span-4" delay="90ms">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full text-xs font-mono bg-purple-950/80 text-purple-300 border border-purple-500/30">
-                  Deterministic Safety
-                </span>
-                <ShieldCheck className="w-5 h-5 text-purple-400" />
+              <div className="flex items-center justify-between gap-3">
+                <CategoryPill tone="violet">Deterministic safety</CategoryPill>
+                <ShieldCheck className="h-5 w-5 text-violet-600" aria-hidden="true" />
               </div>
-              <h3 className="text-xl font-bold font-display text-white">
-                Zero-Hallucination Guardrails
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Hard-coded mathematical bounds ensure the AI never quotes incorrect pricing, offers unapproved discounts, or promises services outside your scope.
+              <h3 className="font-display text-xl font-bold tracking-tight text-ink">Zero-hallucination guardrails</h3>
+              <p className="text-sm leading-relaxed text-slate-600">
+                Hard-coded mathematical bounds ensure the AI never quotes incorrect pricing, offers unapproved discounts,
+                or promises services outside your scope.
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-white/5 text-[11px] font-mono text-emerald-400 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span>100% Policy Compliant Execution</span>
-            </div>
-          </div>
+            <Callout dotClass="bg-emerald-500" textClass="text-emerald-700">
+              100% policy-compliant execution
+            </Callout>
+          </BentoCell>
 
-          {/* Bento Item 3: Bi-directional POS / CRM Sync (4 cols) */}
-          <div className="col-span-12 lg:col-span-4 spotlight-card rounded-2xl border border-white/10 bg-[#090d18]/90 p-8 flex flex-col justify-between space-y-6">
+          {/* Bi-directional POS / CRM sync (4 cols) */}
+          <BentoCell className="col-span-12 md:col-span-6 lg:col-span-4">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full text-xs font-mono bg-indigo-950/80 text-indigo-300 border border-indigo-500/30">
-                  Live Webhook Mesh
-                </span>
-                <RefreshCw className="w-5 h-5 text-indigo-400" />
+              <div className="flex items-center justify-between gap-3">
+                <CategoryPill tone="indigo">Live webhook mesh</CategoryPill>
+                <RefreshCw className="h-5 w-5 text-indigo-600" aria-hidden="true" />
               </div>
-              <h3 className="text-xl font-bold font-display text-white">
-                Direct Two-Way Sync
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Reads live inventory and writes confirmed appointments, takeout tickets, and repair orders straight into your existing software.
+              <h3 className="font-display text-xl font-bold tracking-tight text-ink">Direct two-way sync</h3>
+              <p className="text-sm leading-relaxed text-slate-600">
+                Reads live inventory and writes confirmed appointments, takeout tickets, and repair orders straight into
+                your existing software.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 text-[10px] font-mono text-slate-300">
-              <span className="px-2 py-0.5 rounded bg-slate-900 border border-white/10">Toast</span>
-              <span className="px-2 py-0.5 rounded bg-slate-900 border border-white/10">Square</span>
-              <span className="px-2 py-0.5 rounded bg-slate-900 border border-white/10">Shopify</span>
-              <span className="px-2 py-0.5 rounded bg-slate-900 border border-white/10">Tekmetric</span>
-              <span className="px-2 py-0.5 rounded bg-slate-900 border border-white/10">Procore</span>
-            </div>
-          </div>
+            <ul aria-label="Supported integrations" className="flex flex-wrap gap-1.5">
+              {INTEGRATIONS.map((name) => (
+                <li key={name} className="chip">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </BentoCell>
 
-          {/* Bento Item 4: 95+ Languages (4 cols) */}
-          <div className="col-span-12 lg:col-span-4 spotlight-card rounded-2xl border border-white/10 bg-[#090d18]/90 p-8 flex flex-col justify-between space-y-6">
+          {/* 95+ languages (4 cols) */}
+          <BentoCell className="col-span-12 md:col-span-6 lg:col-span-4" delay="90ms">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full text-xs font-mono bg-sky-950/80 text-sky-300 border border-sky-500/30">
-                  Global Fluency
-                </span>
-                <Globe2 className="w-5 h-5 text-sky-400" />
+              <div className="flex items-center justify-between gap-3">
+                <CategoryPill tone="sky">Global fluency</CategoryPill>
+                <Globe2 className="h-5 w-5 text-sky-600" aria-hidden="true" />
               </div>
-              <h3 className="text-xl font-bold font-display text-white">
-                95+ Languages & Accents
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Instantly detects when a customer speaks Spanish, Mandarin, French, Vietnamese, or Arabic and answers with native dialect fluency.
+              <h3 className="font-display text-xl font-bold tracking-tight text-ink">95+ languages &amp; accents</h3>
+              <p className="text-sm leading-relaxed text-slate-600">
+                Instantly detects when a customer speaks Spanish, Mandarin, French, Vietnamese, or Arabic and answers
+                with native dialect fluency.
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-white/5 text-[11px] font-mono text-sky-300">
+            <Callout dotClass="bg-sky-500" textClass="text-sky-700">
               Auto-detects language in &lt; 0.5 seconds
-            </div>
-          </div>
+            </Callout>
+          </BentoCell>
 
-          {/* Bento Item 5: Instant Human Fallback (4 cols) */}
-          <div className="col-span-12 lg:col-span-4 spotlight-card rounded-2xl border border-white/10 bg-[#090d18]/90 p-8 flex flex-col justify-between space-y-6">
+          {/* Instant human fallback (4 cols) */}
+          <BentoCell className="col-span-12 md:col-span-6 lg:col-span-4" delay="180ms">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full text-xs font-mono bg-amber-950/80 text-amber-300 border border-amber-500/30">
-                  Supervisor Handoff
-                </span>
-                <PhoneForwarded className="w-5 h-5 text-amber-400" />
+              <div className="flex items-center justify-between gap-3">
+                <CategoryPill tone="amber">Supervisor handoff</CategoryPill>
+                <PhoneForwarded className="h-5 w-5 text-amber-600" aria-hidden="true" />
               </div>
-              <h3 className="text-xl font-bold font-display text-white">
-                Intelligent Human Handoff
-              </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                If an edge case or high-value VIP customer requires personal attention, the call transfers instantly with live audio summaries to your mobile.
+              <h3 className="font-display text-xl font-bold tracking-tight text-ink">Intelligent human handoff</h3>
+              <p className="text-sm leading-relaxed text-slate-600">
+                If an edge case or high-value VIP customer requires personal attention, the call transfers instantly with
+                live audio summaries to your mobile.
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-white/5 text-[11px] font-mono text-amber-300">
+            <Callout dotClass="bg-amber-500" textClass="text-amber-700">
               Zero customer frustration guarantee
-            </div>
-          </div>
+            </Callout>
+          </BentoCell>
         </div>
       </div>
     </section>

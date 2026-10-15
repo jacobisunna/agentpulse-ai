@@ -1,102 +1,111 @@
 import React from 'react';
-import { Bot, ArrowUpRight, ShieldCheck, Heart, Sparkles, Terminal } from 'lucide-react';
-import { AGENCY_INFO, INDUSTRIES } from '../data/agencyData';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { INDUSTRIES } from '../data/agencyData';
+import { Logo } from './Navbar';
+
+const PLATFORM_LINKS = [
+  { name: 'Voice AI latency engine', href: '#capabilities' },
+  { name: 'Zero-hallucination guardrails', href: '#capabilities' },
+  { name: 'Live agent sandbox', href: '#simulator' },
+  { name: 'SMB ROI calculator', href: '#calculator' },
+  { name: 'Client case studies', href: '#results' },
+];
+
+const HEADING_CLASS = 'font-mono text-[11px] font-semibold uppercase tracking-wider text-slate-900';
+const LINK_CLASS = 'text-sm text-slate-600 transition-colors hover:text-indigo-600';
+const BADGE_CLASS =
+  'inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] text-slate-600';
 
 export function Footer({ onOpenBlueprint }) {
   return (
-    <footer className="relative border-t border-white/10 bg-[#05070b] pt-16 pb-12 overflow-hidden">
-      {/* Glow highlight */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[250px] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none" />
+    <footer className="relative isolate overflow-hidden border-t border-slate-200 bg-white pb-10 pt-16 [@media(hover:hover)_and_(pointer:fine)]:pb-20">
+      {/* Faint brand glow along the bottom edge */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 left-1/2 -z-10 h-[320px] w-[900px] -translate-x-1/2 translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(99,102,241,0.12),transparent)]"
+      />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
-          {/* Col 1 & 2: Brand & Mission */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 p-[1.5px]">
-                <div className="w-full h-full bg-[#05070b] rounded-[10px] flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-cyan-400" />
-                </div>
-              </div>
-              <span className="text-xl font-bold font-display text-white">
-                Agent<span className="text-cyan-400">Pulse</span> AI
-              </span>
-            </div>
+      <div className="mx-auto max-w-7xl space-y-12 px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5 lg:gap-8">
+          {/* Brand & mission */}
+          <div className="space-y-5 sm:col-span-2">
+            <a href="#" className="group inline-flex rounded-xl" aria-label="AgentPulse AI home">
+              <Logo compact />
+            </a>
 
-            <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-              We engineer, automate, and deploy bespoke multi-agent AI workforces that run your phone dispatch, 24/7 customer booking, supply reordering, and field estimates.
+            <p className="max-w-sm text-sm leading-relaxed text-slate-600">
+              We design, build, and deploy custom multi-agent AI workforces that run your phone dispatch, 24/7 customer
+              booking, supply reordering, and field estimates.
             </p>
 
-            <div className="flex items-center gap-3 pt-2">
-              <div className="px-3 py-1 rounded-md bg-slate-900 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>Vercel Edge Ready</span>
-              </div>
-              <div className="px-3 py-1 rounded-md bg-slate-900 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Zero-Data Retention Option</span>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={BADGE_CLASS}>
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" aria-hidden="true" />
+                <span>Live in under 7 days</span>
+              </span>
+              <span className={BADGE_CLASS}>
+                <ShieldCheck className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
+                <span>Zero-data retention option</span>
+              </span>
             </div>
           </div>
 
-          {/* Col 3: Industry Agents */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-white font-mono uppercase tracking-wider">
-              Industry Verticals
-            </h4>
-            <ul className="space-y-2 text-xs text-slate-400">
+          {/* Industry agents */}
+          <nav aria-label="Industry verticals" className="space-y-4">
+            <h2 className={HEADING_CLASS}>Industry verticals</h2>
+            <ul className="space-y-2.5">
               {INDUSTRIES.map((ind) => (
                 <li key={ind.id}>
-                  <a href="#industries" className="hover:text-cyan-400 transition-colors">
+                  <a href="#industries" className={LINK_CLASS}>
                     {ind.name}
                   </a>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          {/* Col 4: Platform & Capabilities */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-white font-mono uppercase tracking-wider">
-              Autonomous Tech
-            </h4>
-            <ul className="space-y-2 text-xs text-slate-400">
-              <li><a href="#architecture" className="hover:text-cyan-400 transition-colors">Voice AI Latency Engine</a></li>
-              <li><a href="#architecture" className="hover:text-cyan-400 transition-colors">Zero-Hallucination Guardrails</a></li>
-              <li><a href="#simulator" className="hover:text-cyan-400 transition-colors">Live Agent Sandbox</a></li>
-              <li><a href="#calculator" className="hover:text-cyan-400 transition-colors">SMB ROI Calculator</a></li>
-              <li><a href="#results" className="hover:text-cyan-400 transition-colors">Client Case Studies</a></li>
+          {/* Platform & capabilities */}
+          <nav aria-label="Platform" className="space-y-4">
+            <h2 className={HEADING_CLASS}>Autonomous tech</h2>
+            <ul className="space-y-2.5">
+              {PLATFORM_LINKS.map((link) => (
+                <li key={link.name}>
+                  <a href={link.href} className={LINK_CLASS}>
+                    {link.name}
+                  </a>
+                </li>
+              ))}
             </ul>
-          </div>
+          </nav>
 
-          {/* Col 5: Hosting & Deployment */}
+          {/* Get started */}
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-white font-mono uppercase tracking-wider">
-              Deploy & Host
-            </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Designed for instantaneous global edge hosting on Vercel with GitHub repository synchronization.
+            <h2 className={HEADING_CLASS}>Get started</h2>
+            <p className="text-sm leading-relaxed text-slate-600">
+              Tell us how your business runs. We'll send back a custom agent blueprint.
             </p>
             <button
+              type="button"
               onClick={onOpenBlueprint}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white text-xs font-semibold hover:from-cyan-400 hover:to-indigo-500 shadow-md cursor-pointer transition-all"
+              data-magnetic
+              className="btn btn-primary w-full px-4 py-2.5 text-xs"
             >
-              <span>Build Your Agent</span>
-              <Sparkles className="w-3.5 h-3.5" />
+              <span>Build your agent</span>
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
         </div>
 
-        {/* Bottom Bar */}
-        <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-mono">
+        {/* Bottom bar (legal items are plain text: no pages exist for them yet) */}
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-8 text-center font-mono text-xs text-slate-500 sm:flex-row sm:text-left">
           <p>© {new Date().getFullYear()} AgentPulse AI Inc. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <span className="hover:text-slate-200 transition-colors">Privacy Policy</span>
-            <span>•</span>
-            <span className="hover:text-slate-200 transition-colors">Terms of Service</span>
-            <span>•</span>
-            <span className="hover:text-slate-200 transition-colors">SOC2 Type II</span>
-          </div>
+          <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <span>Privacy Policy</span>
+            <span aria-hidden="true">•</span>
+            <span>Terms of Service</span>
+            <span aria-hidden="true">•</span>
+            <span>SOC2 Type II</span>
+          </p>
         </div>
       </div>
     </footer>
